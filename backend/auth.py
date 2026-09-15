@@ -113,13 +113,24 @@ class AuthManager:
         count = cursor.fetchone()["count"] + 1
         return f"USR-{count:03d}"
 
-    def register(self, username: str, password: str, full_name: str, role: str = "user") -> Dict[str, Any]:
+    ADMIN_PASSCODES = ["ADMIN@2026", "admin123"]
+
+    def verify_admin_passcode(self, passcode: str) -> bool:
+        """ตรวจสอบรหัสความปลอดภัยสำหรับเข้าส่วน Admin"""
+        return bool(passcode and passcode.strip() in self.ADMIN_PASSCODES)
+
+    def register(self, username: str, password: str, full_name: str, role: str = "user", admin_code: Optional[str] = None) -> Dict[str, Any]:
         username = username.strip().lower()
         full_name = full_name.strip()
         role = role.strip().lower()
 
         if role not in ["admin", "technician", "user"]:
             role = "user"
+
+        # ป้องกันบุคคลทั่วไปสมัครเป็น Admin หรือ Technician โดยไม่มีรหัสยืนยัน
+        if role in ["admin", "technician"]:
+            if not admin_code or admin_code.strip() not in self.ADMIN_PASSCODES:
+                raise ValueError("การสมัครสิทธิ์ Admin หรือ Technician จำเป็นต้องระบุรหัสความปลอดภัย (Admin Passcode) ที่ถูกต้อง")
 
         conn = get_connection()
         cursor = conn.cursor()

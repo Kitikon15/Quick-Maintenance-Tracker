@@ -1,7 +1,7 @@
 import sqlite3
 from datetime import datetime
 from typing import Dict, List, Optional, Any
-from database import get_connection, init_db, seed_initial_data
+from database import get_connection, init_db, seed_initial_data, ALLOWED_CATEGORIES
 
 class ServiceBoard:
     def __init__(self):
@@ -36,16 +36,19 @@ class ServiceBoard:
 
     # --- Equipment Operations ---
 
-    def add_equipment(self, name: str, location: str, category: str) -> Dict[str, Any]:
+    def add_equipment(self, name: str, location: str, category: str, image_url: Optional[str] = None) -> Dict[str, Any]:
+        if category not in ALLOWED_CATEGORIES:
+            raise ValueError(f"หมวดหมู่ '{category}' ไม่อยู่ใน 5 ประเภทที่เปิดรับซ่อม ({', '.join(ALLOWED_CATEGORIES)})")
+
         conn = get_connection()
         cursor = conn.cursor()
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         eq_id = self._generate_equipment_id(cursor)
 
         cursor.execute("""
-            INSERT INTO equipments (id, name, location, category, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 'Operational', ?, ?)
-        """, (eq_id, name, location, category, now_str, now_str))
+            INSERT INTO equipments (id, name, location, category, status, image_url, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'Operational', ?, ?, ?)
+        """, (eq_id, name, location, category, image_url, now_str, now_str))
         conn.commit()
 
         cursor.execute("SELECT * FROM equipments WHERE id = ?", (eq_id,))
@@ -94,8 +97,6 @@ class ServiceBoard:
             return None
 
         eq_dict = dict(row)
-
-        # ดึง tickets ที่เกี่ยวข้องกับอุปกรณ์นี้
         cursor.execute("SELECT * FROM tickets WHERE equipment_id = ? ORDER BY created_at DESC", (equipment_id,))
         tickets = [dict(t) for t in cursor.fetchall()]
         eq_dict["tickets"] = tickets
@@ -104,6 +105,10 @@ class ServiceBoard:
         return eq_dict
 
     def update_equipment(self, equipment_id: str, data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        if "category" in data and data["category"] is not None:
+            if data["category"] not in ALLOWED_CATEGORIES:
+                raise ValueError(f"หมวดหมู่อุปกรณ์ต้องเป็น 1 ใน 5 ประเภท: {', '.join(ALLOWED_CATEGORIES)}")
+
         conn = get_connection()
         cursor = conn.cursor()
 
@@ -116,7 +121,7 @@ class ServiceBoard:
         updates = []
         params = []
 
-        for field in ["name", "location", "category", "status"]:
+        for field in ["name", "location", "category", "status", "image_url"]:
             if field in data and data[field] is not None:
                 updates.append(f"{field} = ?")
                 params.append(data[field])
@@ -153,31 +158,71 @@ class ServiceBoard:
     # --- Ticket Operations ---
 
     def create_ticket(
-        self, equipment_id: str, title: str, description: str, priority: str = "Medium", created_by: Optional[str] = None
+        self,
+        title: str,
+        description: str,
+        device_category: str,
+        equipment_id: Optional[str] = None,
+        device_model: Optional[str] = None,
+        priority: str = "Medium",
+        image_before: Optional[str] = None,
+        customer_name: Optional[str] = None,
+        customer_phone: Optional[str] = None,
+        estimated_cost: float = 0.0,
+        estimated_days: int = 1,
+        created_by: Optional[str] = None
     ) -> Optional[Dict[str, Any]]:
+        if device_category not in ALLOWED_CATEGORIES:
+            raise ValueError(f"ระบบเปิดรับซ่อมเฉพาะ 5 ประเภทเท่านั้น: {', '.join(ALLOWED_CATEGORIES)}")
+
         conn = get_connection()
         cursor = conn.cursor()
-
-        cursor.execute("SELECT * FROM equipments WHERE id = ?", (equipment_id,))
-        eq = cursor.fetchone()
-        if not eq:
-            conn.close()
-            return None
-
-        tk_id = self._generate_ticket_id(cursor)
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-        cursor.execute("""
-            INSERT INTO tickets (id, equipment_id, title, description, priority, status, created_by, created_at)
-            VALUES (?, ?, ?, ?, ?, 'Open', ?, ?)
-        """, (tk_id, equipment_id, title, description, priority, created_by, now_str))
+        # ตรวจสอบหรือสร้าง equipment_id อัตโนมัติหากไม่ระบุ
+        if equipment_id:
+            cursor.execute("SELECT * FROM equipments WHERE id = ?", (equipment_id,))
+            eq = cursor.fetchone()
+        else:
+            eq = None
 
-        # อัปเดตสถานะอุปกรณ์เป็น Needs Maintenance หากไม่ได้อยู่ในสถานะ Under Repair
-        if eq["status"] != "Under Repair":
+        if not eq:
+            # ค้นหาอุปกรณ์ประเภทเดียวกัน หรือสร้างใหม่
+            cursor.execute("SELECT * FROM equipments WHERE category = ? ORDER BY id ASC LIMIT 1", (device_category,))
+            existing_eq = cursor.fetchone()
+            if existing_eq and not equipment_id:
+                equipment_id = existing_eq["id"]
+                eq = existing_eq
+            else:
+                equipment_id = self._generate_equipment_id(cursor)
+                eq_name = device_model if device_model else f"{device_category} Service Device"
+                cursor.execute("""
+                    INSERT INTO equipments (id, name, location, category, status, image_url, created_at, updated_at)
+                    VALUES (?, ?, 'เคาน์เตอร์บริการงานซ่อม', ?, 'Needs Maintenance', ?, ?, ?)
+                """, (equipment_id, eq_name, device_category, image_before, now_str, now_str))
+
+        tk_id = self._generate_ticket_id(cursor)
+
+        cursor.execute("""
+            INSERT INTO tickets (
+                id, equipment_id, title, description, priority, status, created_by, created_at,
+                image_before, device_category, device_model, customer_name, customer_phone,
+                estimated_cost, estimated_days
+            )
+            VALUES (?, ?, ?, ?, ?, 'Open', ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            tk_id, equipment_id, title, description, priority, created_by, now_str,
+            image_before, device_category, device_model, customer_name, customer_phone,
+            estimated_cost, estimated_days
+        ))
+
+        # อัปเดตสถานะอุปกรณ์เป็น Needs Maintenance หากยังไม่ใช่ Under Repair
+        cursor.execute("SELECT status FROM equipments WHERE id = ?", (equipment_id,))
+        curr_eq = cursor.fetchone()
+        if curr_eq and curr_eq["status"] != "Under Repair":
             cursor.execute("UPDATE equipments SET status = 'Needs Maintenance', updated_at = ? WHERE id = ?", (now_str, equipment_id))
 
         conn.commit()
-
 
         cursor.execute("""
             SELECT t.*, e.name as equipment_name, e.location as equipment_location 
@@ -194,6 +239,7 @@ class ServiceBoard:
         search: Optional[str] = None,
         status: Optional[str] = None,
         priority: Optional[str] = None,
+        device_category: Optional[str] = None,
         equipment_id: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         conn = get_connection()
@@ -208,9 +254,9 @@ class ServiceBoard:
         params = []
 
         if search:
-            query += " AND (t.title LIKE ? OR t.description LIKE ? OR t.id LIKE ? OR t.assigned_to LIKE ?)"
+            query += " AND (t.title LIKE ? OR t.description LIKE ? OR t.id LIKE ? OR t.assigned_to LIKE ? OR t.device_model LIKE ? OR t.customer_name LIKE ? OR t.customer_phone LIKE ?)"
             term = f"%{search}%"
-            params.extend([term, term, term, term])
+            params.extend([term, term, term, term, term, term, term])
 
         if status and status != "All":
             query += " AND t.status = ?"
@@ -219,6 +265,10 @@ class ServiceBoard:
         if priority and priority != "All":
             query += " AND t.priority = ?"
             params.append(priority)
+
+        if device_category and device_category != "All":
+            query += " AND t.device_category = ?"
+            params.append(device_category)
 
         if equipment_id:
             query += " AND t.equipment_id = ?"
@@ -244,7 +294,14 @@ class ServiceBoard:
         return dict(row) if row else None
 
     def update_ticket_status(
-        self, ticket_id: str, status: str, technician: Optional[str] = None, notes: Optional[str] = None
+        self,
+        ticket_id: str,
+        status: str,
+        technician: Optional[str] = None,
+        notes: Optional[str] = None,
+        image_after: Optional[str] = None,
+        estimated_cost: Optional[float] = None,
+        estimated_days: Optional[int] = None
     ) -> Optional[Dict[str, Any]]:
         conn = get_connection()
         cursor = conn.cursor()
@@ -260,14 +317,17 @@ class ServiceBoard:
 
         assigned_to = technician if technician is not None else ticket["assigned_to"]
         current_notes = notes if notes is not None else ticket["notes"]
+        after_img = image_after if image_after is not None else ticket["image_after"]
+        cost = estimated_cost if estimated_cost is not None else ticket["estimated_cost"]
+        days = estimated_days if estimated_days is not None else ticket["estimated_days"]
 
         cursor.execute("""
             UPDATE tickets 
-            SET status = ?, assigned_to = ?, notes = ?, resolved_at = ?
+            SET status = ?, assigned_to = ?, notes = ?, resolved_at = ?,
+                image_after = ?, estimated_cost = ?, estimated_days = ?
             WHERE id = ?
-        """, (status, assigned_to, current_notes, resolved_at, ticket_id))
+        """, (status, assigned_to, current_notes, resolved_at, after_img, cost, days, ticket_id))
 
-        # ปรับสถานะอุปกรณ์โดยอัตโนมัติตามสถานะของ Ticket
         eq_id = ticket["equipment_id"]
         self._recalculate_equipment_status(cursor, eq_id, now_str)
 
@@ -282,6 +342,49 @@ class ServiceBoard:
         row = cursor.fetchone()
         conn.close()
         return dict(row)
+
+    def add_ticket_review(self, ticket_id: str, rating: int, review_comment: str) -> Optional[Dict[str, Any]]:
+        """บันทึกคะแนนรีวิวและความคิดเห็นของลูกค้าหลังการซ่อม"""
+        conn = get_connection()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM tickets WHERE id = ?", (ticket_id,))
+        ticket = cursor.fetchone()
+        if not ticket:
+            conn.close()
+            return None
+
+        cursor.execute("""
+            UPDATE tickets
+            SET rating = ?, review_comment = ?
+            WHERE id = ?
+        """, (rating, review_comment.strip(), ticket_id))
+        conn.commit()
+
+        cursor.execute("""
+            SELECT t.*, e.name as equipment_name, e.location as equipment_location 
+            FROM tickets t
+            LEFT JOIN equipments e ON t.equipment_id = e.id
+            WHERE t.id = ?
+        """, (ticket_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return dict(row)
+
+    def get_all_reviews(self) -> List[Dict[str, Any]]:
+        """ดึงรายการรีวิวและความพึงพอใจของลูกค้าทั้งหมด"""
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT t.*, e.name as equipment_name 
+            FROM tickets t
+            LEFT JOIN equipments e ON t.equipment_id = e.id
+            WHERE t.rating IS NOT NULL
+            ORDER BY t.created_at DESC
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return [dict(r) for r in rows]
 
     def delete_ticket(self, ticket_id: str) -> bool:
         conn = get_connection()
@@ -303,7 +406,6 @@ class ServiceBoard:
         return True
 
     def _recalculate_equipment_status(self, cursor: sqlite3.Cursor, equipment_id: str, now_str: str):
-        """คำนวณสถานะอุปกรณ์อัตโนมัติตาม Ticket ที่คงค้างอยู่"""
         cursor.execute("SELECT status FROM tickets WHERE equipment_id = ?", (equipment_id,))
         tickets = cursor.fetchall()
 
@@ -369,7 +471,8 @@ class ServiceBoard:
         return {
             "stats": self.get_dashboard_stats(),
             "equipments": self.get_all_equipments(),
-            "tickets": self.get_all_tickets()
+            "tickets": self.get_all_tickets(),
+            "reviews": self.get_all_reviews()
         }
 
     def reset_demo_data(self) -> Dict[str, str]:
@@ -380,4 +483,4 @@ class ServiceBoard:
         conn.commit()
         seed_initial_data(conn)
         conn.close()
-        return {"message": "รีเซ็ตข้อมูลตัวอย่างสำเร็จเรียบร้อย"}
+        return {"message": "รีเซ็ตข้อมูลตัวอย่างสำหรับ Notebook, Computer, Mobile, iPhone, iPad เรียบร้อยแล้ว"}
