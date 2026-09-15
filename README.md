@@ -60,25 +60,25 @@
 
 ```mermaid
 flowchart TD
-    Start([🚀 เริ่มต้นใช้งาน]) --> CheckAuth{เข้าสู่ระบบหรือยัง?}
+    Start(["🚀 เริ่มต้นใช้งาน"]) --> CheckAuth{"เข้าสู่ระบบหรือยัง?"}
     
-    CheckAuth -->|ยังไม่ได้ล็อกอิน| GuestView[ดูสถิติภาพรวม / สลับธีมขาว-ดำ]
-    GuestView --> ActionLogin{ต้องการทำรายการ?}
-    ActionLogin -->|เข้าสู่ระบบ| DoLogin[กรอก Username/Password หรือ One-Click Login]
-    ActionLogin -->|สมัครสมาชิก| DoReg[ลงทะเบียนผู้ใช้ใหม่]
+    CheckAuth -->|ยังไม่ได้ล็อกอิน| GuestView["ดูสถิติภาพรวม / สลับธีมขาว-ดำ"]
+    GuestView --> ActionLogin{"ต้องการทำรายการ?"}
+    ActionLogin -->|เข้าสู่ระบบ| DoLogin["กรอก Username/Password หรือ One-Click Login"]
+    ActionLogin -->|สมัครสมาชิก| DoReg["ลงทะเบียนผู้ใช้ใหม่"]
     DoReg --> DoLogin
-    DoLogin --> IdentifyRole{ตรวจสอบสิทธิ์ (Role)}
+    DoLogin --> IdentifyRole{"ตรวจสอบสิทธิ์ Role"}
 
     CheckAuth -->|ล็อกอินแล้ว| IdentifyRole
 
-    IdentifyRole -->|User ทั่วไป| UserMenu[1. แจ้งซ่อมอุปกรณ์<br>2. ติดตามสถานะงานของตนเอง<br>3. ดูทะเบียนอุปกรณ์]
-    IdentifyRole -->|Technician ช่าง| TechMenu[1. รับงานซ่อม In Progress<br>2. บันทึกผลการซ่อม / มอบหมายงาน<br>3. ปิดเคส Resolved -> อุปกรณ์กลับมาปกติ]
-    IdentifyRole -->|Admin ผู้ดูแล| AdminMenu[1. บริหารจัดการผู้ใช้งาน ปรับสิทธิ์/ลบ<br>2. เพิ่ม/แก้ไข/ลบ ทะเบียนอุปกรณ์<br>3. ลบใบแจ้งซ่อม / รีเซ็ต Demo Data]
+    IdentifyRole -->|User ทั่วไป| UserMenu["1. แจ้งซ่อมอุปกรณ์<br/>2. ติดตามสถานะงานของตนเอง<br/>3. ดูทะเบียนอุปกรณ์"]
+    IdentifyRole -->|Technician ช่าง| TechMenu["1. รับงานซ่อม In Progress<br/>2. บันทึกผลการซ่อม / มอบหมายงาน<br/>3. ปิดเคส Resolved → อุปกรณ์กลับมาปกติ"]
+    IdentifyRole -->|Admin ผู้ดูแล| AdminMenu["1. บริหารจัดการผู้ใช้งาน ปรับสิทธิ์/ลบ<br/>2. เพิ่ม/แก้ไข/ลบ ทะเบียนอุปกรณ์<br/>3. ลบใบแจ้งซ่อม / รีเซ็ต Demo Data"]
 
-    UserMenu --> UpdateBoard[ServiceBoard ประมวลผลและอัปเดต SQLite DB]
+    UserMenu --> UpdateBoard["ServiceBoard ประมวลผลและอัปเดต SQLite DB"]
     TechMenu --> UpdateBoard
     AdminMenu --> UpdateBoard
-    UpdateBoard --> RefreshUI[หน้าเว็บอัปเดตข้อมูลและแจ้งเตือน Toast] --> End([สิ้นสุดการทำงาน])
+    UpdateBoard --> RefreshUI["หน้าเว็บอัปเดตข้อมูลและแจ้งเตือน Toast"] --> EndNode(["สิ้นสุดการทำงาน"])
 ```
 
 ---
@@ -205,7 +205,7 @@ sequenceDiagram
     deactivate API
     AuthUI ->> AuthUI: บันทึก Token ใน localStorage
     AuthUI ->> AuthUI: อัปเดต Profile Badge & แสดงแท็บตามสิทธิ์
-    AuthUI -->> User: แจ้งเตือน Toast "เข้าสู่ระบบสำเร็จ"
+    AuthUI -->> User: แจ้งเตือน Toast: เข้าสู่ระบบสำเร็จ
 ```
 
 ---
@@ -228,17 +228,17 @@ sequenceDiagram
     activate Board
     Board ->> DB: SELECT * FROM equipments WHERE id = ?
     DB -->> Board: พบอุปกรณ์ (EQ-002)
-    Board ->> Board: _generate_ticket_id() -> TK-004
+    Board ->> Board: generate_ticket_id: TK-004
     Board ->> DB: INSERT INTO tickets (...) VALUES (...)
     Board ->> DB: UPDATE equipments SET status = 'Needs Maintenance'
-    Note over Board, DB: เปลี่ยนสถานะอุปกรณ์เป็น "รอตรวจเช็ค" อัตโนมัติ
+    Note over Board, DB: เปลี่ยนสถานะอุปกรณ์เป็น รอตรวจเช็ค อัตโนมัติ
     DB -->> Board: Commit Transaction
     Board -->> API: return new_ticket_dict
     deactivate Board
     API -->> UI: HTTP 201 Created {ticket}
     deactivate API
     UI ->> UI: รีเฟรชตารางใบแจ้งซ่อมและ KPI Stats
-    UI -->> User: แสดง Toast "สร้างใบแจ้งซ่อม TK-004 สำเร็จ"
+    UI -->> User: แสดง Toast: สร้างใบแจ้งซ่อม TK-004 สำเร็จ
 ```
 
 ---
@@ -254,23 +254,23 @@ sequenceDiagram
     participant Board as board: ServiceBoard
     participant DB as SQLite (maintenance.db)
 
-    Tech ->> UI: กดปุ่มจัดการ Ticket -> เลือกสถานะ "Resolved" พร้อมบันทึกโน้ต
-    UI ->> API: PATCH /api/tickets/TK-004 {status: "Resolved", technician: "ธนากร", notes: "..."}
+    Tech ->> UI: กดปุ่มจัดการ Ticket และเลือกสถานะ Resolved พร้อมบันทึกโน้ต
+    UI ->> API: PATCH /api/tickets/TK-004 {status: 'Resolved', technician: 'ธนากร', notes: '...'}
     activate API
-    API ->> Board: update_ticket_status("TK-004", "Resolved", "ธนากร", notes)
+    API ->> Board: update_ticket_status('TK-004', 'Resolved', 'ธนากร', notes)
     activate Board
     Board ->> DB: UPDATE tickets SET status = 'Resolved', resolved_at = NOW()
-    Board ->> Board: _recalculate_equipment_status("EQ-002")
-    Note over Board: ตรวจสอบว่ามี Ticket ค้างอยู่อีกหรือไม่? (ไม่มีแล้ว)
+    Board ->> Board: _recalculate_equipment_status('EQ-002')
+    Note over Board: ตรวจสอบว่ามี Ticket ค้างอยู่อีกหรือไม่ (ไม่มีแล้ว)
     Board ->> DB: UPDATE equipments SET status = 'Operational'
-    Note over Board, DB: คืนสถานะอุปกรณ์เป็น "ปกติ (Operational)"
+    Note over Board, DB: คืนสถานะอุปกรณ์เป็น ปกติ (Operational)
     DB -->> Board: Commit
     Board -->> API: return updated_ticket
     deactivate Board
     API -->> UI: HTTP 200 OK
     deactivate API
     UI ->> UI: อัปเดตตารางและกราฟความพร้อมใช้งาน (Uptime %)
-    UI -->> Tech: แสดง Toast "ปิดเคสสำเร็จ อุปกรณ์กลับสู่สถานะปกติ"
+    UI -->> Tech: แสดง Toast: ปิดเคสสำเร็จ อุปกรณ์กลับสู่สถานะปกติ
 ```
 
 ---
@@ -286,13 +286,13 @@ sequenceDiagram
     participant Auth as auth: AuthManager
     participant DB as SQLite (maintenance.db)
 
-    Admin ->> UI: ไปที่แท็บ "จัดการผู้ใช้งาน" -> เลือกเปลี่ยนสิทธิ์ผู้ใช้เป็น "Technician"
-    UI ->> API: PATCH /api/admin/users/USR-003/role {role: "technician"}
-    Note over UI, API: แนบ Header "Authorization: Bearer <token>"
+    Admin ->> UI: ไปที่แท็บ จัดการผู้ใช้งาน และเลือกเปลี่ยนสิทธิ์ผู้ใช้เป็น Technician
+    UI ->> API: PATCH /api/admin/users/USR-003/role {role: 'technician'}
+    Note over UI, API: แนบ Header Authorization: Bearer [token]
     activate API
     API ->> API: require_admin(current_user)
     Note over API: ยืนยันว่าผู้เรียกคือ Admin จริง
-    API ->> Auth: update_user_role("USR-003", "technician")
+    API ->> Auth: update_user_role('USR-003', 'technician')
     activate Auth
     Auth ->> DB: UPDATE users SET role = 'technician' WHERE id = 'USR-003'
     DB -->> Auth: Success
@@ -301,7 +301,7 @@ sequenceDiagram
     API -->> UI: HTTP 200 OK
     deactivate API
     UI ->> UI: อัปเดตตารางแสดงรายชื่อผู้ใช้
-    UI -->> Admin: แสดง Toast "ปรับสิทธิ์ผู้ใช้เป็น TECHNICIAN สำเร็จ"
+    UI -->> Admin: แสดง Toast: ปรับสิทธิ์ผู้ใช้เป็น TECHNICIAN สำเร็จ
 ```
 
 ---
