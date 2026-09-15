@@ -1,0 +1,558 @@
+<!DOCTYPE html>
+<html lang="th" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quick Maintenance Tracker - ระบบบริหารจัดการงานซ่อมบำรุง</title>
+    
+    <!-- Google Fonts: Prompt & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Custom Modern Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <div class="wrapper">
+        <!-- ===== Header Bar ===== -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="logo-badge">
+                    <i class="fa-solid fa-screwdriver-wrench"></i>
+                </div>
+                <div class="header-text">
+                    <h1>Quick Maintenance Tracker</h1>
+                    <p>ระบบบันทึกและติดตามงานซ่อมบำรุงอุปกรณ์อัจฉริยะ (Enterprise Edition)</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <!-- API Connection Indicator -->
+                <div class="status-pill" id="apiStatusPill" title="สถานะการเชื่อมต่อกับเซิร์ฟเวอร์">
+                    <span class="pulse-dot"></span>
+                    <span id="apiStatusText">เชื่อมต่อระบบสำเร็จ</span>
+                </div>
+
+                <!-- Dark / Light Theme Switcher -->
+                <button class="theme-toggle-btn" id="themeToggleBtn" title="สลับธีม สว่าง / มืด">
+                    <i class="fa-solid fa-moon"></i>
+                </button>
+
+                <!-- Guest Auth Actions (เมื่อยังไม่ล็อกอิน) -->
+                <div id="guestAuthGroup" style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary btn-sm" onclick="openLoginModal()">
+                        <i class="fa-solid fa-right-to-bracket"></i>
+                        <span>เข้าสู่ระบบ</span>
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="openRegisterModal()">
+                        <i class="fa-solid fa-user-plus"></i>
+                        <span>สมัครสมาชิก</span>
+                    </button>
+                </div>
+
+                <!-- Logged In User Profile (เมื่อล็อกอินแล้ว) -->
+                <div id="userProfileGroup" style="display: none; align-items: center; gap: 8px;">
+                    <div class="user-profile-badge">
+                        <div class="user-avatar" id="headerUserAvatar">U</div>
+                        <div class="user-info">
+                            <span class="user-name" id="headerUserName">ผู้ใช้งาน</span>
+                            <span class="role-badge role-user" id="headerUserRole">User</span>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" onclick="logout()" title="ออกจากระบบ">
+                        <i class="fa-solid fa-arrow-right-from-bracket"></i>
+                        <span>ออก</span>
+                    </button>
+                </div>
+
+                <!-- Reset Demo Data -->
+                <button class="btn btn-secondary btn-sm" id="resetDemoBtn" title="รีเซ็ตข้อมูลตัวอย่างสำหรับการนำเสนอ">
+                    <i class="fa-solid fa-rotate-left"></i>
+                    <span>รีเซ็ต Demo</span>
+                </button>
+
+                <!-- Quick Action New Ticket -->
+                <button class="btn btn-primary" id="headerNewTicketBtn">
+                    <i class="fa-solid fa-plus"></i>
+                    <span>แจ้งซ่อมใหม่</span>
+                </button>
+            </div>
+        </header>
+
+        <!-- ===== KPI Stats Grid ===== -->
+        <section class="stats-grid">
+            <div class="stat-card" style="--card-accent: var(--primary); --card-icon-bg: var(--primary-light);">
+                <div class="stat-info">
+                    <p class="stat-label">อุปกรณ์ทั้งหมด</p>
+                    <h2 class="stat-value" id="statTotalEquipments">0</h2>
+                    <p class="stat-desc" id="statUptimeDesc">ความพร้อมใช้งาน: 0%</p>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-cubes"></i></div>
+            </div>
+
+            <div class="stat-card" style="--card-accent: var(--status-success); --card-icon-bg: var(--status-success-bg);">
+                <div class="stat-info">
+                    <p class="stat-label">อุปกรณ์พร้อมใช้</p>
+                    <h2 class="stat-value" id="statOperational">0</h2>
+                    <p class="stat-desc">สถานะปกติ พร้อมปฏิบัติงาน</p>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-circle-check"></i></div>
+            </div>
+
+            <div class="stat-card" style="--card-accent: var(--status-warning); --card-icon-bg: var(--status-warning-bg);">
+                <div class="stat-info">
+                    <p class="stat-label">รอตรวจเช็ค / ซ่อม</p>
+                    <h2 class="stat-value" id="statNeedsMaint">0</h2>
+                    <p class="stat-desc">ต้องได้รับการบำรุงรักษา</p>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+            </div>
+
+            <div class="stat-card" style="--card-accent: var(--status-info); --card-icon-bg: var(--status-info-bg);">
+                <div class="stat-info">
+                    <p class="stat-label">งานแจ้งซ่อมคงค้าง</p>
+                    <h2 class="stat-value" id="statPendingTickets">0</h2>
+                    <p class="stat-desc" id="statInProgressDesc">รอดำเนินการ 0 เคส</p>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-clock-rotate-left"></i></div>
+            </div>
+
+            <div class="stat-card" style="--card-accent: var(--status-danger); --card-icon-bg: var(--status-danger-bg);">
+                <div class="stat-info">
+                    <p class="stat-label">เคสด่วนพิเศษ</p>
+                    <h2 class="stat-value" id="statUrgentTickets">0</h2>
+                    <p class="stat-desc">ระดับความเร่งด่วนสูงสุด</p>
+                </div>
+                <div class="stat-icon"><i class="fa-solid fa-fire"></i></div>
+            </div>
+        </section>
+
+        <!-- ===== Tabbed Navigation ===== -->
+        <div class="tabs-container">
+            <div class="nav-tabs">
+                <button class="tab-btn active" id="tabTicketsBtn" onclick="switchTab('tickets')">
+                    <i class="fa-solid fa-clipboard-list"></i>
+                    <span>ใบแจ้งซ่อม</span>
+                    <span class="tab-count" id="badgeTicketsCount">0</span>
+                </button>
+                <button class="tab-btn" id="tabEquipmentsBtn" onclick="switchTab('equipments')">
+                    <i class="fa-solid fa-server"></i>
+                    <span>ทะเบียนอุปกรณ์</span>
+                    <span class="tab-count" id="badgeEquipmentsCount">0</span>
+                </button>
+                <button class="tab-btn" id="tabUsersBtn" style="display: none;" onclick="switchTab('users')">
+                    <i class="fa-solid fa-users-gear"></i>
+                    <span>จัดการผู้ใช้งาน</span>
+                    <span class="tab-count" id="badgeUsersCount">0</span>
+                </button>
+            </div>
+
+            <div class="tab-actions">
+                <button class="btn btn-primary" id="tabActionBtn" onclick="handlePrimaryAction()">
+                    <i class="fa-solid fa-plus"></i>
+                    <span id="tabActionBtnText">แจ้งซ่อมใหม่</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== Control Card (Search & Filter) ===== -->
+        <!-- 1. Ticket Filters -->
+        <div class="control-card" id="ticketControlCard">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="ticketSearchInput" class="search-input" placeholder="ค้นหารหัส, หัวข้อปัญหา, หรือชื่ออุปกรณ์...">
+            </div>
+            <div class="filter-group">
+                <select id="ticketStatusFilter" class="select-filter">
+                    <option value="All">ทุกสถานะงานซ่อม</option>
+                    <option value="Open">Open (เปิดเรื่อง)</option>
+                    <option value="In Progress">In Progress (กำลังซ่อม)</option>
+                    <option value="Resolved">Resolved (ซ่อมเสร็จ)</option>
+                    <option value="Closed">Closed (ปิดเคส)</option>
+                </select>
+
+                <select id="ticketPriorityFilter" class="select-filter">
+                    <option value="All">ทุกระดับความเร่งด่วน</option>
+                    <option value="Urgent">Urgent (ด่วนที่สุด)</option>
+                    <option value="High">High (ความสำคัญสูง)</option>
+                    <option value="Medium">Medium (ปานกลาง)</option>
+                    <option value="Low">Low (ทั่วไป)</option>
+                </select>
+
+                <button class="btn btn-secondary btn-sm" onclick="resetTicketFilters()">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>ล้างตัวกรอง</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. Equipment Filters -->
+        <div class="control-card" id="eqControlCard" style="display: none;">
+            <div class="search-box">
+                <i class="fa-solid fa-magnifying-glass"></i>
+                <input type="text" id="eqSearchInput" class="search-input" placeholder="ค้นหาชื่ออุปกรณ์, รหัส, หรือสถานที่...">
+            </div>
+            <div class="filter-group">
+                <select id="eqCategoryFilter" class="select-filter">
+                    <option value="All">ทุกหมวดหมู่</option>
+                    <!-- Populated dynamically -->
+                </select>
+
+                <select id="eqStatusFilter" class="select-filter">
+                    <option value="All">ทุกสถานะอุปกรณ์</option>
+                    <option value="Operational">Operational (ปกติ)</option>
+                    <option value="Needs Maintenance">Needs Maintenance (รอตรวจเช็ค)</option>
+                    <option value="Under Repair">Under Repair (อยู่ระหว่างซ่อม)</option>
+                </select>
+
+                <button class="btn btn-secondary btn-sm" onclick="resetEqFilters()">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>ล้างตัวกรอง</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== Views Section ===== -->
+        <!-- Tab 1: Tickets Table View -->
+        <section class="table-card" id="ticketsSection">
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>รหัส Ticket</th>
+                            <th>อุปกรณ์</th>
+                            <th>หัวข้อปัญหา & รายละเอียด</th>
+                            <th>ระดับความสำคัญ</th>
+                            <th>ผู้รับผิดชอบ</th>
+                            <th>สถานะ</th>
+                            <th>วันที่แจ้ง</th>
+                            <th style="text-align: right;">การจัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ticketTableBody">
+                        <!-- Rendered by JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="ticketEmptyState" class="empty-state" style="display: none;">
+                <i class="fa-solid fa-clipboard-check"></i>
+                <h3>ไม่พบรายการใบแจ้งซ่อม</h3>
+                <p>ไม่มีงานแจ้งซ่อมที่ตรงกับเงื่อนไขการค้นหาหรือตัวกรองที่คุณเลือก</p>
+                <button class="btn btn-primary btn-sm" onclick="openTicketModal()">
+                    <i class="fa-solid fa-plus"></i> แจ้งซ่อมใหม่ตอนนี้
+                </button>
+            </div>
+        </section>
+
+        <!-- Tab 2: Equipments Table View -->
+        <section class="table-card" id="equipmentsSection" style="display: none;">
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>รหัสอุปกรณ์</th>
+                            <th>ชื่ออุปกรณ์</th>
+                            <th>สถานที่ติดตั้ง</th>
+                            <th>หมวดหมู่</th>
+                            <th>สถานะการทำงาน</th>
+                            <th>วันที่ลงทะเบียน</th>
+                            <th style="text-align: right;">การจัดการ</th>
+                        </tr>
+                    </thead>
+                    <tbody id="equipmentTableBody">
+                        <!-- Rendered by JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="eqEmptyState" class="empty-state" style="display: none;">
+                <i class="fa-solid fa-cubes-stacked"></i>
+                <h3>ไม่พบรายการอุปกรณ์</h3>
+                <p>ไม่มีอุปกรณ์ที่ตรงกับเงื่อนไขการค้นหาหรือตัวกรองที่เลือก</p>
+                <button class="btn btn-primary btn-sm" onclick="openEquipmentModal()">
+                    <i class="fa-solid fa-plus"></i> เพิ่มอุปกรณ์ใหม่
+                </button>
+            </div>
+        </section>
+
+        <!-- Tab 3: Users Table View (Admin Only) -->
+        <section class="table-card" id="usersSection" style="display: none;">
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>รหัสผู้ใช้</th>
+                            <th>Username</th>
+                            <th>ชื่อ - นามสกุลจริง</th>
+                            <th>บทบาทปัจจุบัน</th>
+                            <th>วันที่ลงทะเบียน</th>
+                            <th style="text-align: right;">ปรับเปลี่ยนสิทธิ์ / ลบผู้ใช้</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTableBody">
+                        <!-- Rendered by JS -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="userEmptyState" class="empty-state" style="display: none;">
+                <i class="fa-solid fa-users-slash"></i>
+                <h3>ไม่พบรายชื่อผู้ใช้งาน</h3>
+                <p>ยังไม่มีข้อมูลผู้ใช้งานในระบบ</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- ==========================================
+         MODALS (POPUP DIALOGS)
+         ========================================== -->
+
+    <!-- 1. Modal: แจ้งซ่อมอุปกรณ์ใหม่ -->
+    <div class="modal-overlay" id="ticketModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-wrench" style="color: var(--primary);"></i> เปิดใบแจ้งซ่อมอุปกรณ์</h3>
+                <button class="modal-close-btn" onclick="closeModal('ticketModal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="newTicketForm" onsubmit="submitNewTicket(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label" for="ticketEquipmentSelect">เลือกอุปกรณ์ที่ชำรุด <span class="req">*</span></label>
+                        <select id="ticketEquipmentSelect" class="form-control" required>
+                            <option value="">-- กำลังโหลดรายการอุปกรณ์... --</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="ticketTitleInput">หัวข้อปัญหา / อาการเสียโดยย่อ <span class="req">*</span></label>
+                        <input type="text" id="ticketTitleInput" class="form-control" placeholder="เช่น แอร์ไม่เย็น, หัวเครื่องพิมพ์กระดาษติด" required maxlength="150">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="ticketDescInput">รายละเอียดอาการเสียเพิ่มเติม <span class="req">*</span></label>
+                        <textarea id="ticketDescInput" class="form-control" rows="3" placeholder="ระบุอาการผิดปกติ, รหัส Error หรือสิ่งที่พบเห็น..." required maxlength="1000"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="ticketPrioritySelect">ระดับความเร่งด่วน <span class="req">*</span></label>
+                        <select id="ticketPrioritySelect" class="form-control" required>
+                            <option value="Low">Low - ปกติทั่วไป (ไม่กระทบการทำงาน)</option>
+                            <option value="Medium" selected>Medium - ปานกลาง (ควรรีบแก้ไข)</option>
+                            <option value="High">High - สำคัญสูง (กระทบการทำงานส่วนใหญ่)</option>
+                            <option value="Urgent">Urgent - ด่วนที่สุด (ระบบหลักหยุดชะงัก)</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('ticketModal')">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> บันทึกใบแจ้งซ่อม</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 2. Modal: อัปเดตสถานะงานซ่อม & ช่างรับผิดชอบ -->
+    <div class="modal-overlay" id="updateTicketModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-pen-to-square" style="color: var(--primary);"></i> อัปเดตสถานะงานซ่อม <span id="updateTicketIdDisplay" class="code-badge" style="margin-left: 8px;"></span></h3>
+                <button class="modal-close-btn" onclick="closeModal('updateTicketModal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="updateTicketForm" onsubmit="submitUpdateTicket(event)">
+                <input type="hidden" id="updateTicketIdHidden">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label" for="updateTicketStatusSelect">สถานะงานซ่อม <span class="req">*</span></label>
+                        <select id="updateTicketStatusSelect" class="form-control" required>
+                            <option value="Open">Open (เปิดเรื่อง / รอดำเนินการ)</option>
+                            <option value="In Progress">In Progress (กำลังดำเนินการซ่อม)</option>
+                            <option value="Resolved">Resolved (แก้ไขเสร็จสิ้น - อุปกรณ์กลับมาปกติ)</option>
+                            <option value="Closed">Closed (ปิดเคสสมบูรณ์)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="updateTechnicianInput">ช่างผู้รับผิดชอบ / ผู้ดูแลเคส</label>
+                        <input type="text" id="updateTechnicianInput" class="form-control" placeholder="เช่น วิศวกร วีรชัย, ช่างสมชาย" maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="updateNotesInput">บันทึกผลการซ่อม / รายละเอียดอะไหล่</label>
+                        <textarea id="updateNotesInput" class="form-control" rows="3" placeholder="ระบุการดำเนินการ เช่น เปลี่ยนแผงวงจร, ทำความสะอาดหัวเซนเซอร์..." maxlength="500"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('updateTicketModal')">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> บันทึกการเปลี่ยนแปลง</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 3. Modal: เพิ่มอุปกรณ์ใหม่เข้าระบบ -->
+    <div class="modal-overlay" id="equipmentModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-plus-circle" style="color: var(--primary);"></i> ลงทะเบียนอุปกรณ์ใหม่</h3>
+                <button class="modal-close-btn" onclick="closeModal('equipmentModal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="newEquipmentForm" onsubmit="submitNewEquipment(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label" for="eqNameInput">ชื่ออุปกรณ์ / รหัสรุ่น <span class="req">*</span></label>
+                        <input type="text" id="eqNameInput" class="form-control" placeholder="เช่น เครื่องตัดเลเซอร์ Fiber CNC 1000W" required maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="eqLocationInput">สถานที่ติดตั้ง / แผนก <span class="req">*</span></label>
+                        <input type="text" id="eqLocationInput" class="form-control" placeholder="เช่น โรงงาน A ชั้น 1 โซนตัดชิ้นงาน" required maxlength="100">
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="eqCategoryInput">หมวดหมู่อุปกรณ์ <span class="req">*</span></label>
+                        <input type="text" id="eqCategoryInput" class="form-control" placeholder="เช่น IT & Infrastructure, Machinery, Electrical, Facilities" required list="categorySuggestions" maxlength="50">
+                        <datalist id="categorySuggestions">
+                            <option value="IT & Infrastructure">
+                            <option value="HVAC / Facilities">
+                            <option value="Machinery">
+                            <option value="Electrical">
+                            <option value="Production">
+                            <option value="General Equipment">
+                        </datalist>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" onclick="closeModal('equipmentModal')">ยกเลิก</button>
+                    <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> ลงทะเบียนอุปกรณ์</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 4. Modal: ดูประวัติการซ่อมและรายละเอียดอุปกรณ์ -->
+    <div class="modal-overlay" id="equipmentDetailModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-circle-info" style="color: var(--primary);"></i> ประวัติและรายละเอียดอุปกรณ์</h3>
+                <button class="modal-close-btn" onclick="closeModal('equipmentDetailModal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <div id="eqDetailContent">
+                    <!-- Loaded dynamically -->
+                </div>
+                <h4 style="font-size: 0.95rem; font-weight: 600; margin-top: 20px; margin-bottom: 8px;">
+                    <i class="fa-solid fa-clock-rotate-left"></i> ประวัติการแจ้งซ่อมทั้งหมด
+                </h4>
+                <div id="eqTicketHistoryContainer">
+                    <!-- History timeline populated by JS -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('equipmentDetailModal')">ปิดหน้าต่าง</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 5. Modal: เข้าสู่ระบบ (Login) -->
+    <div class="modal-overlay" id="loginModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-right-to-bracket" style="color: var(--primary);"></i> เข้าสู่ระบบ</h3>
+                <button class="modal-close-btn" onclick="closeModal('loginModal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="modal-body">
+                <!-- Quick Demo Login Buttons -->
+                <div style="margin-bottom: 12px;">
+                    <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-secondary); display: block; margin-bottom: 6px;">
+                        ⚡ เลือกสิทธิ์เพื่อทดสอบระบบทันที (One-Click Demo Login):
+                    </span>
+                    <div class="quick-login-grid">
+                        <div class="quick-login-card" onclick="quickLogin('admin')" title="เข้าใช้งานในฐานะผู้ดูแลระบบ">
+                            <i class="fa-solid fa-shield-halved" style="color: var(--status-danger);"></i>
+                            <div class="role-title">Admin</div>
+                            <div class="role-sub">สิทธิ์สูงสุด</div>
+                        </div>
+                        <div class="quick-login-card" onclick="quickLogin('technician')" title="เข้าใช้งานในฐานะช่างซ่อมบำรุง">
+                            <i class="fa-solid fa-user-gear" style="color: var(--status-info);"></i>
+                            <div class="role-title">Technician</div>
+                            <div class="role-sub">ช่างซ่อม</div>
+                        </div>
+                        <div class="quick-login-card" onclick="quickLogin('user')" title="เข้าใช้งานในฐานะผู้ใช้งานทั่วไป">
+                            <i class="fa-solid fa-user" style="color: var(--status-success);"></i>
+                            <div class="role-title">User</div>
+                            <div class="role-sub">ผู้แจ้งซ่อม</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="auth-divider">หรือกรอกชื่อผู้ใช้และรหัสผ่าน</div>
+
+                <form id="loginForm" onsubmit="submitLogin(event)">
+                    <div class="form-group">
+                        <label class="form-label" for="loginUsername">ชื่อผู้ใช้งาน (Username) <span class="req">*</span></label>
+                        <input type="text" id="loginUsername" class="form-control" placeholder="เช่น admin, technician, user" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="loginPassword">รหัสผ่าน (Password) <span class="req">*</span></label>
+                        <input type="password" id="loginPassword" class="form-control" placeholder="กรอกรหัสผ่านของคุณ" required>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size: 0.82rem; color: var(--text-secondary);">
+                            ยังไม่มีบัญชี? <a href="javascript:void(0)" onclick="switchToRegister()" style="color: var(--primary); font-weight: 600; text-decoration: none;">สมัครสมาชิกที่นี่</a>
+                        </span>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-right-to-bracket"></i> เข้าสู่ระบบ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- 6. Modal: สมัครสมาชิก (Register) -->
+    <div class="modal-overlay" id="registerModal">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fa-solid fa-user-plus" style="color: var(--primary);"></i> สมัครสมาชิกใหม่</h3>
+                <button class="modal-close-btn" onclick="closeModal('registerModal')"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <form id="registerForm" onsubmit="submitRegister(event)">
+                <div class="modal-body">
+                    <div class="form-group">
+                        <label class="form-label" for="regUsername">ชื่อผู้ใช้งาน (Username) <span class="req">*</span></label>
+                        <input type="text" id="regUsername" class="form-control" placeholder="ภาษาอังกฤษหรือตัวเลขอย่างน้อย 3 ตัวอักษร" required minlength="3">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regFullName">ชื่อ - นามสกุลจริง <span class="req">*</span></label>
+                        <input type="text" id="regFullName" class="form-control" placeholder="เช่น นายประดิษฐ์ วิศวกรรม" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regPassword">รหัสผ่าน (Password) <span class="req">*</span></label>
+                        <input type="password" id="regPassword" class="form-control" placeholder="อย่างน้อย 4 ตัวอักษร" required minlength="4">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="regRole">บทบาท / สิทธิ์การใช้งาน <span class="req">*</span></label>
+                        <select id="regRole" class="form-control" required>
+                            <option value="user" selected>ผู้ใช้งานทั่วไป (User) - แจ้งซ่อมและติดตามสถานะ</option>
+                            <option value="technician">ช่างซ่อมบำรุง (Technician) - รับงานซ่อมและปิดเคส</option>
+                            <option value="admin">ผู้ดูแลระบบ (Admin) - บริหารจัดการทุกส่วน</option>
+                        </select>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; flex-wrap: wrap; gap: 8px;">
+                        <span style="font-size: 0.82rem; color: var(--text-secondary);">
+                            มีบัญชีอยู่แล้ว? <a href="javascript:void(0)" onclick="switchToLogin()" style="color: var(--primary); font-weight: 600; text-decoration: none;">เข้าสู่ระบบที่นี่</a>
+                        </span>
+                        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> สมัครสมาชิก</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ===== Toast Notification Container ===== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <!-- Javascript Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
