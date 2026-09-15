@@ -384,23 +384,6 @@ python -c "import sys; sys.path.append('backend'); from auth import AuthManager;
 # 3. ทดสอบการดึงข้อมูลสถิติภาพรวมจากฐานข้อมูล
 python -c "import sys; sys.path.append('backend'); from service_board import ServiceBoard; print(ServiceBoard().get_dashboard_stats())"
 ```
-
----
-
-### 5. คำสั่ง Git ที่ใช้ในโปรเจกต์
-
-```bash
-# ตรวจสอบสถานะไฟล์ในโปรเจกต์
-git status
-
-# บันทึกการเปลี่ยนแปลง
-git add .
-git commit -m "feat: upgrade modern frontend UI with light/dark theme, auth system and admin role"
-
-# ส่งโค้ดขึ้นสู่ Remote Repository (GitHub)
-git push origin main
-```
-
 ---
 
 ## 🔑 บัญชีผู้ใช้สำหรับทดสอบระบบ
