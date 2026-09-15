@@ -49,9 +49,9 @@
 
 | สมาชิก | คลาส / โมดูลที่รับผิดชอบ | หน้าที่หลักเชิงเทคนิค (Responsibilities) |
 | :--- | :--- | :--- |
-| **คนที่ 1** | **`Equipment` & `ServiceBoard`** | • ออกแบบคลาส `Equipment` จัดการข้อมูลอุปกรณ์ รหัส สถานที่ติดตั้ง หมวดหมู่ และการสลับสถานะความพร้อมทำงาน (Operational, Needs Maintenance, Under Repair)<br>• ออกแบบคลาสส่วนกลาง `ServiceBoard` บริหารจัดการข้อมูลอุปกรณ์ คำนวณสถานะอุปกรณ์อัตโนมัติตาม Ticket คงค้าง และคำนวณสถิติภาพรวม (KPI Uptime %) |
-| **คนที่ 2** | **`Ticket`, `User` & `AuthManager`** | • ออกแบบคลาส `Ticket` จัดการใบแจ้งซ่อม รายละเอียดอาการเสีย ระดับความเร่งด่วน การมอบหมายงานช่าง และวงจรชีวิตของงานซ่อมจนเสร็จสิ้น (Resolved)<br>• ออกแบบคลาส `User` และ `AuthManager` ดูแลระบบความปลอดภัย การยืนยันตัวตน (Login/Register), แฮชรหัสผ่าน PBKDF2, ออกและตรวจสอบ Signed Token และระบบสิทธิ์ RBAC (Admin, Technician, User) |
-| **ทำงานร่วมกัน** | **FastAPI & Frontend Dashboard** | • ร่วมกันเชื่อมโยง RESTful API Endpoints เข้ากับ Frontend (การ Mount Static Files, CORS, Route Security Protection)<br>• ร่วมกันออกแบบ UI Modern Dashboard รองรับธีมขาว/ดำ (Light/Dark Theme), Modals, Toasts, และการทดสอบระบบแบบ End-to-End |
+| **คนที่ 1** | **`Equipment`** | • ออกแบบและพัฒนาคลาส `Equipment` (ใน `backend/equipment.py`) จัดการข้อมูลอุปกรณ์ รหัส สถานที่ติดตั้ง หมวดหมู่<br>• นำหลัก **Encapsulation** มาใช้เพื่อปกป้องข้อมูลคุณลักษณะเป็น Private และควบคุมการเปลี่ยนสถานะการทำงาน (`Operational`, `Needs Maintenance`, `Under Repair`) พร้อม Data Validation ก่อนบันทึก |
+| **คนที่ 2** | **`Ticket`** | • ออกแบบและพัฒนาคลาส `Ticket` / `MaintenanceTicket` (ใน `backend/ticket.py`) จัดการวงจรชีวิตของใบแจ้งซ่อมทั้งหมด<br>• จัดการข้อมูลอาการเสีย กำหนดระดับความเร่งด่วน (`Low`, `Medium`, `High`, `Urgent`), บันทึกผู้แจ้งซ่อม (`created_by`), มอบหมายงานช่าง (`technician`), ควบคุมสถานะ (`Open`, `In Progress`, `Resolved`, `Closed`), และบันทึกผลการซ่อมแซม (`resolution_notes`) |
+| **ทำงานร่วมกัน** | **`ServiceBoard` & ระบบส่วนกลาง (User/Auth, FastAPI, Frontend)** | • **คลาสส่วนกลาง `ServiceBoard`**: ร่วมกันออกแบบและพัฒนาคลาส Hub ศูนย์กลางเพื่อเชื่อมโยง `Equipment` (คนที่ 1) และ `Ticket` (คนที่ 2) เข้าด้วยกัน ซิงค์สถานะอุปกรณ์อัตโนมัติตาม Ticket ที่ค้างอยู่ และคำนวณสถิติภาพรวม (KPI System Health & Uptime %)<br>• **ระบบยืนยันตัวตน & ความปลอดภัย**: ร่วมกันพัฒนาคลาส `User` และ `AuthManager` (การลงทะเบียน, เข้าสู่ระบบ, แฮชรหัสผ่าน PBKDF2 HMAC SHA-256, และระบบสิทธิ์ RBAC 3 ระดับ)<br>• **FastAPI & Frontend**: ร่วมกันเชื่อมโยง RESTful API Endpoints เข้ากับ Modern UI Dashboard (รองรับทั้งธีมขาว/ดำ, Modals, Toasts) และการทดสอบระบบแบบ End-to-End |
 
 ---
 
